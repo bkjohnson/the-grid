@@ -1,4 +1,5 @@
 <link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../polymer/lib/utils/flattened-nodes-observer.html">
 
 <!--
 `<the-grid>` is a grid layout element width drag n drop and resize capabilities.
@@ -51,7 +52,7 @@ Example:
         </style>
 
         <div id="container">
-            <slot></slot>
+            <slot id="tiles"></slot>
         </div>
 
     </template>
@@ -149,6 +150,14 @@ Example:
                         value: false,
                         reflectToAttribute: true,
                         observer: '_attachEvents'
+                    },
+
+                    /**
+                     * List of all tiles in the grid
+                     */
+                    tiles: {
+                      type: Object,
+                      observer: '_attachEvents'
                     }
                 }
             }
@@ -162,6 +171,7 @@ Example:
 
             connectedCallback () {
                 super.connectedCallback();
+                this.tiles = Polymer.FlattenedNodesObserver.getFlattenedNodes(this.$.tiles)
                 this.computeStyles();
                 this._attachEvents();
             }
@@ -315,8 +325,14 @@ Example:
                     player.style.transition = 'none';
                     player.style.left = `${newLeft}px`;
                     player.style.top = `${newTop}px`;
-                    this.placeholder.setAttribute('row', position.row);
-                    this.placeholder.setAttribute('col', position.col);
+                    if (this._isOverLapping(player)){
+                      player.style.border = '2px solid red'
+                    }
+                    else {
+                      player.style.border = ''
+                      this.placeholder.setAttribute('row', position.row);
+                      this.placeholder.setAttribute('col', position.col);
+                    }
                 }
 
                 if (state == 'end') {
@@ -327,11 +343,36 @@ Example:
                     player.style.transition = '';
                     player.style.zIndex = '';
                     this.placeholder.style.display = '';
+                    player.style.border = ''
                 }
 
                 this._safePreventDefault(e.detail.sourceEvent);
                 e.preventDefault();
 
+            }
+
+            // Collision detection algorithm
+            _isOverLapping(node){
+              let nodeRect = node.getBoundingClientRect()
+              let rect = {}
+              let overlap = false
+
+              for (let i = 0; i < this.tiles.length; i++){
+                if (this.tiles[i].nodeName == "#text" ||
+                    this.tiles[i] == node ||
+                    this.tiles[i].hasAttribute('placeholder')){
+                  continue
+                }
+                rect = this.tiles[i].getBoundingClientRect()
+                overlap = !(nodeRect.right < rect.left ||
+                                nodeRect.left > rect.right ||
+                                nodeRect.bottom < rect.top ||
+                                nodeRect.top > rect.bottom)
+                if (overlap){
+                  break
+                }
+              }
+              return overlap;
             }
 
             /**
